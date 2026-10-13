@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Reusable Handy build.yml requests contents:write for optional release uploads.
+  contents: write
 
 jobs:
   protocol-tests:
