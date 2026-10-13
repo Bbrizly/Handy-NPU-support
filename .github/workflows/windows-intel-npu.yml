@@ -1,0 +1,35 @@
+name: Windows Intel NPU prototype
+
+on:
+  push:
+    branches:
+      - feature/windows-intel-npu-openvino
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test binary protocol without NPU hardware
+        run: python -m unittest discover -s scripts/tests -p "test_windows_npu.py" -v
+      - name: Python worker syntax
+        run: python -m py_compile src-tauri/src/windows_npu_worker.py
+
+  windows-installer:
+    needs: protocol-tests
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: windows-latest
+      target: x86_64-pc-windows-msvc
+      build-args: ''
+      sign-binaries: false
+      upload-artifacts: true
+      asset-prefix: handy-intel-npu-experimental
+      no-cache: true
