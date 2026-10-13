@@ -1304,6 +1304,31 @@ impl TranscriptionManager {
         let output_was_translated = run_plan.target_language.as_deref() == Some("en");
         let applied_language_hint = run_plan.language.clone();
 
+        // Windows x64 only: an explicitly configured Intel NPU runs OpenVINO
+        // Whisper on device="NPU". This is not Vulkan or GPU acceleration.
+        // Unsupported hardware, missing deps, or failures transparently fall
+        // back to the existing transcribe-cpp worker with the same PCM.
+        // Custom-word prompts are left on the native path until the NPU path
+        // supports them with equivalent semantics.
+        #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+        if model_is_whisper && settings.custom_words.is_empty() {
+            if let Some(text) = crate::windows_npu::try_transcribe(
+                &audio,
+                applied_language_hint.as_deref(),
+                output_was_translated,
+            ) {
+                info!("Transcribed through OpenVINO Whisper on Intel NPU");
+                return Ok(RunOutcome {
+                    text,
+                    languages,
+                    applied_language_hint,
+                    output_was_translated,
+                    model_detected_language: None,
+                    model_is_whisper: true,
+                });
+            }
+        }
+
         let run_options = RunOptions {
             task: run_plan.task,
             language: run_plan.language,
