@@ -34,3 +34,37 @@ jobs:
       upload-artifacts: true
       asset-prefix: handy-intel-npu-experimental
       no-cache: true
+
+  github-prerelease:
+    name: Publish experimental Windows installers
+    needs: [protocol-tests, windows-installer]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: handy-intel-npu-experimental-x86_64-pc-windows-msvc
+          path: dist
+      - name: Publish prerelease after successful Windows packaging
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem -Path dist -Recurse -File | Where-Object { $_.Extension -in @('.exe', '.msi') })
+          if ($files.Count -eq 0) { throw 'No Windows installer artifacts were produced' }
+          $tag = "npu-preview-${{ github.run_number }}"
+          $notes = @'
+          EXPERIMENTAL Windows Intel NPU Whisper support. NOT hardware-validated.
+          Uses user-installed Python/OpenVINO GenAI and separately exported OpenVINO Whisper model.
+          Installs as Handy NPU Preview, separate from upstream Handy.
+          Requires an Intel NPU on Windows x64; AMD/Qualcomm NPUs are NOT supported.
+          On NPU failure, original Handy transcribe-cpp is used as fallback.
+          Setup: https://github.com/Bbrizly/Handy-NPU-support/blob/feature/windows-intel-npu-openvino/docs/windows-intel-npu.md
+          Unsigned development builds may trigger SmartScreen; do not disable antivirus.
+          '@
+          Set-Content -Path npu-release-notes.txt -Value $notes -Encoding utf8
+          $paths = @($files | ForEach-Object { $_.FullName })
+          gh release create $tag @paths --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Handy Intel NPU Preview ($tag)" --notes-file npu-release-notes.txt --prerelease
+          if ($LASTEXITCODE -ne 0) { throw "GitHub prerelease upload failed (exit $LASTEXITCODE)" }
