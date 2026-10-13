@@ -26,6 +26,8 @@ mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
 mod utils;
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+mod windows_npu;
 
 pub use cli::CliArgs;
 #[cfg(debug_assertions)]
